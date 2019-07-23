@@ -362,6 +362,107 @@ var getXpath = function (element) {
 };
 
 
+var formatDatetime = function (time, format = 'YY-MM-DD hh:mm:ss') {
+    var date = new Date(time);
+
+    var year = date.getFullYear(),
+        month = date.getMonth() + 1,//月份是从0开始的
+        day = date.getDate(),
+        hour = date.getHours(),
+        min = date.getMinutes(),
+        sec = date.getSeconds();
+
+    var preArr = Array.apply(null, Array(10)).map(function (elem, index) {
+        return '0' + index;
+    });////开个长度为10的数组 格式为 00 01 02 03
+
+    var newTime = format.replace(/YY/g, year)
+        .replace(/MM/g, preArr[month] || month)
+        .replace(/DD/g, preArr[day] || day)
+        .replace(/hh/g, preArr[hour] || hour)
+        .replace(/mm/g, preArr[min] || min)
+        .replace(/ss/g, preArr[sec] || sec);
+
+    return newTime;
+
+};
+
+var RandomTen = function (aNum) {
+    try {
+        var Num=10,string='';
+        if( aNum!=null ){
+            Num=aNum;
+        }
+        //通过循环获得随机10位数
+        for( var i=0;i<Num;i++ ){
+            string+=parseInt( Math.random(0,1)*100 ) ;
+        }
+        return string;
+    }
+    catch (e) {
+        console.log(e);
+    }
+};
+
+var getCookie = function (name) {
+    var arr,reg = new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+
+    if(arr=document.cookie.match(reg))
+        return unescape(arr[2]);
+    else
+        return null;
+};
+
+var setCookie = function (name, value) {
+    var Days = 365;
+    var exp = new Date();
+    // exp.setTime(exp.getTime() + Days*60*1000);
+    exp.setTime(exp.getTime() + Days*24*60*60*1000);
+
+    var domain = window.location.host;//默认是本地存储cookie(localhost)
+    var domains = domain.split('.');
+
+    if (domains.length === 3){//用于线上cookie保存
+        domains = domains.slice(1,3);
+        domain = '.' + domains.join('.');
+    }else{
+        var domainsArr = domain.split(':');
+        if(domainsArr.length==2){
+            domain = domainsArr[0];
+        }
+    }
+    document.cookie = name + "=" + escape (value) + "; expires=" + exp.toGMTString() + ";path=/;domain="+domain;
+};
+
+var judgeUser = function (ip, date) {
+    try {
+        var storage = getCookie( 'webtool' ),Date;
+        if (storage == null){
+            Date = ip+RandomTen()+":"+date;
+            setCookie('webtool', unescape(Date));
+        }
+    }
+    catch (e) {
+        console.log(e);
+    }
+};
+
+const _send_request = async (url, dt) => {
+    try {
+        console.log(dt);
+        console.log(typeof dt);
+        var config = {
+            headers: {"content-type":"application/json"}
+        };
+        const response = await axios.post(url, dt, config);
+        console.log('sending message....');
+        console.log(response);
+    }
+    catch (e) {
+        console.log(e);
+    }
+};
+
 
 /*   end   */
 
@@ -442,6 +543,7 @@ var autocheck = {
     },
 
     _trackEvent: function(e, instance) {
+
         /*** Don't mess with this code without running IE8 tests on it ***/
         var target = this._getEventTarget(e);
         if (isTextNode(target)) { // defeat Safari bug (see: http://www.quirksmode.org/js/events_properties.html)
@@ -499,17 +601,60 @@ var autocheck = {
                 },
                 this._getCustomProperties(targetElementList)
             );
+            var city = returnCitySN;
+
+            // your api url
+            var url = '';
+
+
+            var curTime = formatDatetime(new Date().getTime());
+            var curXpath = getXpath(e.target);
+            var curOuterHtml = e.target.outerHTML;
+            var loc = returnCitySN.cname;
+            var uip = returnCitySN.cip;
+
+            //judge user
+            judgeUser(uip, curTime);
+
+            //get cookie
+            var uid = getCookie('token');
+            var uidentity = getCookie('webtool')
+
+            props['action_time'] = curTime;
+            props['xpath'] = curXpath;
+            props['outerhtml'] = curOuterHtml;
+            props['request_header'] = window.location.href;
+            props['location'] = loc;
+            props['uip'] = uip;
+            props['uidentity'] = uidentity;
+            // props['uid'] = uid;
+            if (uid == null){
+                props['uid'] = 'anonymoususer';
+            }else {
+                props['uid'] = uid;
+            }
+            if (curOuterHtml.length < 200){
+                _send_request(url, props);
+            }else {
+                console.log('invalid click event listened, will not trace!!!')
+            }
 
             /*
             * you can edit data to which to be sent backend here
             * for example:
             * element xpath,
+            * action time,
+            * outerHtml/innerHtml,
+            * an so on....
             */
             // instance.track('$web_event', props);
             // console.log(typeof window.document);
-            console.log(getXpath(e.target)); // xpath
-            console.log('coming here');
-            console.log(props);
+            // console.log(dtarray);
+            // console.log(typeof dtarray);
+            // console.log(e.target.outerHTML);
+            // console.log('coming here');
+            // console.log(props);
+
             return true;
         }
     },
